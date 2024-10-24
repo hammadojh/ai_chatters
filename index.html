@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Agents</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Default layout for landscape mode */
+        #agentsContainer {
+            flex-direction: row;
+        }
+
+        /* Portrait mode layout */
+        @media (orientation: portrait) {
+            #agentsContainer {
+                flex-direction: column;
+            }
+            .agent {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            justify-content: flex-end; /* Keep current message at the bottom */
+        }
+
+        .message {
+            transition: all 0.5s ease;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            min-height: 50px;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .message.typing {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .message.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .message.fading {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        .faded {
+            opacity: 0.3;
+            transform: translateY(-20px);
+        }
+
+        .agent {
+            height: 400px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: visible; /* Allow context menu to be visible outside */
+        }
+
+        .message-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center the message vertically */
+            align-items: center;
+            padding: 20px;
+            overflow: hidden; /* Hide overflow content */
+        }
+
+        .message {
+            transition: all 0.5s ease;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            min-height: 50px;
+            max-width: 90%;
+            width: fit-content;
+            margin: 0 auto;
+        }
+
+        .context-input {
+            position: absolute;
+            top: 12px;
+            left: 2px;
+            right: 2px;
+            z-index: 10;
+        }
+
+        /* Smooth text appearance */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .character {
+            display: inline-block;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        /* Add these new styles */
+        .agent .flex.gap-1 {
+            z-index: 20; /* Make buttons clickable */
+        }
+
+        .context-input {
+            position: absolute;
+            top: 12px;
+            left: 2px;
+            right: 2px;
+            z-index: 15; /* Lower than buttons but higher than messages */
+        }
+
+        .message-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+            z-index: 10; /* Lower than both buttons and context input */
+        }
+        #chatInput{
+            z-index: 25;
+        }
+    </style>
+</head>
+
+<body class="m-0 p-0 min-h-screen w-full flex flex-col">
+    <div id="agentsContainer" class="flex flex-1 h-full">
+        <div id="rectangle1" class="agent flex-1 bg-slate-600 rounded-2xl m-2.5 relative">
+            <div class="flex gap-1 absolute top-2 left-2">
+                <button class="train-button bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                    Train
+                </button>
+                <button class="model-button bg-indigo-500 text-white px-2 py-1 rounded text-sm">
+                    Claude
+                </button>
+            </div>
+            <div class="context-input hidden absolute top-12 left-2 right-2 z-10">
+                <textarea 
+                    class="w-full p-2 text-black rounded"
+                    placeholder="Enter agent context..."
+                    rows="3"
+                ></textarea>
+                <button class="save-context bg-green-500 text-white px-2 py-1 rounded text-sm mt-1">
+                    Save Context
+                </button>
+            </div>
+            <div class="flex items-center justify-center h-full">
+                <div id="messages1" class="message-container w-full">
+                    <div id="response1" class="message text-white text-2xl text-center max-w-md mx-auto">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="rectangle2" class="agent flex-1 bg-slate-700 rounded-2xl m-2.5">
+            <div class="flex flex-col items-center justify-center h-full relative">
+                <div class="flex gap-1 absolute top-2 left-2">
+                    <button class="train-button bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                        Train
+                    </button>
+                    <button class="model-button bg-purple-500 text-white px-2 py-1 rounded text-sm">
+                        GPT
+                    </button>
+                </div>
+                <div class="context-input hidden absolute top-10 right-2 left-2">
+                    <textarea 
+                        class="w-full p-2 text-black rounded"
+                        placeholder="Enter agent context..."
+                        rows="3"
+                    ></textarea>
+                    <button class="save-context bg-green-500 text-white px-2 py-1 rounded text-sm mt-1">
+                        Save Context
+                    </button>
+                </div>
+                <div id="messages2" class="message-container w-full">
+                    <div id="response2" class="message text-white text-2xl text-center max-w-md mx-auto">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <input id="chatInput" type="text" class="p-2.5 text-center text-lg rounded-xl shadow-lg" placeholder="Type your message..."
+        style="position: fixed; bottom: 150px; left: 300px; right: 300px;">
+    <div style="position: fixed; bottom: 100px; left: 300px; right: 300px; text-align: center;">
+        <button id="addAgent" class="bg-green-500 text-white p-2 rounded">Add Agent</button>
+        <button id="removeAgent" class="bg-red-500 text-white p-2 rounded">Remove Agent</button>
+    </div>
+
+    <script>
+        const chatInput = document.getElementById('chatInput');
+        const agentsContainer = document.getElementById('agentsContainer');
+        const addAgentButton = document.getElementById('addAgent');
+        const removeAgentButton = document.getElementById('removeAgent');
+        let turn = 0;
+        let agentCount = 2;
+        let userMessageQueue = [];
+        let isChatting = false;
+
+        // Function to get grayscale color based on agent number
+        function getGrayScale(agentNumber, totalAgents) {
+            // Calculate gray level (900 darkest to 300 lightest)
+            const grayLevel = Math.max(300, 900 - ((agentNumber - 1) * (600 / (totalAgents - 1))));
+            return `bg-gray-${Math.floor(grayLevel / 100) * 100}`;
+        }
+
+        // Function to update all agent colors
+        function updateAgentColors() {
+            for (let i = 1; i <= agentCount; i++) {
+                const rectangle = document.getElementById(`rectangle${i}`);
+                if (rectangle) {
+                    // Remove existing gray background classes
+                    rectangle.className = rectangle.className.replace(/bg-gray-\d+/g, '');
+                    // Add new gray background class
+                    rectangle.className += ` ${getGrayScale(i, agentCount)}`;
+                }
+            }
+        }
+
+        chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const userInput = chatInput.value;
+                chatInput.value = '';
+                userMessageQueue.push(userInput);
+                if (!isChatting) {
+                    initiateChat(userInput, true);
+                }
+            }
+        });
+
+        addAgentButton.addEventListener('click', () => {
+            agentCount++;
+            const newAgentDiv = createAgentElement(agentCount);
+            agentsContainer.appendChild(newAgentDiv);
+            updateAgentColors();
+        });
+
+        removeAgentButton.addEventListener('click', () => {
+            if (agentCount > 2) {
+                const lastAgentDiv = document.getElementById(`rectangle${agentCount}`);
+                agentsContainer.removeChild(lastAgentDiv);
+                agentCount--;
+                updateAgentColors(); // Update colors for remaining agents
+            }
+        });
+
+        async function initiateChat(message, isUserMessage = false) {
+            isChatting = true;
+            const currentAgent = (turn % agentCount) + 1;
+            const messagesContainer = document.getElementById(`messages${currentAgent}`);
+            
+            // Fade out existing message if it exists
+            const existingMessage = messagesContainer.querySelector('.message');
+            if (existingMessage) {
+                existingMessage.classList.add('fading');
+                // Remove the old message after fade animation
+                setTimeout(() => {
+                    existingMessage.remove();
+                }, 500); // Match this with the CSS transition duration
+            }
+
+            // Create new message element with typing state
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message text-white text-2xl text-center max-w-md mx-auto typing';
+            newMessage.id = `response${currentAgent}`;
+            messagesContainer.appendChild(newMessage);
+
+            // Force reflow to trigger animation
+            void newMessage.offsetWidth;
+            newMessage.classList.add('visible');
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message, turn, agentCount })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let done = false;
+                let text = '';
+                let buffer = '';
+
+                while (!done) {
+                    const { value, done: streamDone } = await reader.read();
+                    done = streamDone;
+                    const chunk = decoder.decode(value, { stream: true });
+                    
+                    // Process the chunk character by character
+                    for (const char of chunk) {
+                        buffer += char;
+                        const charSpan = document.createElement('span');
+                        charSpan.className = 'character';
+                        charSpan.textContent = char === ' ' ? '\u00A0' : char; // Use non-breaking space for spaces
+                        newMessage.appendChild(charSpan);
+                        
+                        // Slow down the streaming
+                        await new Promise(resolve => setTimeout(resolve, 25)); // Increased delay
+                    }
+                    text += chunk;
+                }
+
+                // Handle any remaining text in the buffer
+                if (buffer) { // Remove trim() to keep spaces
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'character';
+                    wordSpan.textContent = buffer.replace(/ /g, '\u00A0'); // Replace spaces with non-breaking spaces
+                    newMessage.appendChild(wordSpan);
+                }
+
+                // Store the complete text
+                newMessage.innerHTML = text // Use innerHTML and replace spaces with non-breaking spaces
+
+                turn++;
+
+                // Continue the conversation
+                setTimeout(() => {
+                    if (userMessageQueue.length > 0) {
+                        const userMessage = userMessageQueue.shift();
+                        initiateChat(userMessage, true);
+                    } else {
+                        const lastResponse = newMessage.textContent;
+                        if (lastResponse && lastResponse.length > 0) {
+                            initiateChat(lastResponse);
+                        }
+                    }
+                    isChatting = false;
+                }, 2000);
+            } catch (error) {
+                console.error('Error in chat:', error);
+                isChatting = false;
+            }
+        }
+
+        function createAgentElement(agentNumber) {
+            const agentDiv = document.createElement('div');
+            agentDiv.id = `rectangle${agentNumber}`;
+            agentDiv.className = `agent flex-1 rounded-2xl m-2.5 relative`;
+            agentDiv.innerHTML = `
+                <div class="flex gap-1 absolute top-2 left-2">
+                    <button class="train-button bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                        Train
+                    </button>
+                    <button class="model-button bg-purple-500 text-white px-2 py-1 rounded text-sm">
+                        GPT
+                    </button>
+                    <button class="personality-button bg-yellow-500 text-white px-2 py-1 rounded text-sm">
+                        ${getRandomPersonality()}
+                    </button>
+                </div>
+                <div class="context-input hidden absolute top-12 left-2 right-2 z-10">
+                    <textarea 
+                        class="w-full p-2 text-black rounded"
+                        placeholder="Enter agent context..."
+                        rows="3"
+                    ></textarea>
+                    <button class="save-context bg-green-500 text-white px-2 py-1 rounded text-sm mt-1">
+                        Save Context
+                    </button>
+                </div>
+                <div class="flex items-center justify-center h-full">
+                    <div id="messages${agentNumber}" class="message-container w-full">
+                        <div id="response${agentNumber}" class="message text-white text-2xl text-center max-w-md mx-auto">
+                            ...
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add existing event listeners
+            const trainButton = agentDiv.querySelector('.train-button');
+            const contextInput = agentDiv.querySelector('.context-input');
+            const saveContextButton = agentDiv.querySelector('.save-context');
+            const textarea = agentDiv.querySelector('textarea');
+            const modelButton = agentDiv.querySelector('.model-button');
+
+            // Add model toggle functionality
+            modelButton.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/toggle-model', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            agentId: agentNumber
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const { model } = await response.json();
+                        modelButton.textContent = model === 'gpt' ? 'GPT' : 'Claude';
+                        modelButton.classList.remove('bg-purple-500', 'bg-indigo-500');
+                        modelButton.classList.add(model === 'gpt' ? 'bg-purple-500' : 'bg-indigo-500');
+                    }
+                } catch (error) {
+                    console.error('Error toggling model:', error);
+                }
+            });
+
+            // Existing event listeners...
+            trainButton.addEventListener('click', () => {
+                contextInput.classList.toggle('hidden');
+            });
+
+            saveContextButton.addEventListener('click', async () => {
+                const context = textarea.value;
+                try {
+                    const response = await fetch('/train', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            agentId: agentNumber,
+                            context: context
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        contextInput.classList.add('hidden');
+                        trainButton.classList.add('bg-green-500');
+                        setTimeout(() => {
+                            trainButton.classList.remove('bg-green-500');
+                            trainButton.classList.add('bg-blue-500');
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('Error training agent:', error);
+                }
+            });
+
+            // Set initial model button state based on agent number
+            if (agentNumber === 1) {
+                modelButton.textContent = 'Claude';
+                modelButton.classList.remove('bg-purple-500');
+                modelButton.classList.add('bg-indigo-500');
+            }
+
+            // Add personality button click handler
+            const personalityButton = agentDiv.querySelector('.personality-button');
+            personalityButton.addEventListener('click', async () => {
+                try {
+                    const currentPersonality = personalityButton.textContent.toLowerCase();
+                    const personalityKeys = Object.keys(personalities);
+                    const currentIndex = personalityKeys.indexOf(currentPersonality);
+                    const nextIndex = (currentIndex + 1) % personalityKeys.length;
+                    const newPersonality = personalityKeys[nextIndex];
+                    
+                    const response = await fetch('/set-personality', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            agentId: agentNumber,
+                            personality: newPersonality
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        personalityButton.textContent = newPersonality.charAt(0).toUpperCase() + 
+                                             newPersonality.slice(1);
+                        // Visual feedback
+                        personalityButton.classList.add('bg-green-500');
+                        setTimeout(() => {
+                            personalityButton.classList.remove('bg-green-500');
+                            personalityButton.classList.add('bg-yellow-500');
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.error('Error setting personality:', error);
+                }
+            });
+
+            return agentDiv;
+        }
+
+        // Initialize agent colors
+        updateAgentColors();
+
+        // Initialize the existing agents with the training functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            // Convert existing static agent divs to have the training functionality
+            for (let i = 1; i <= 2; i++) {
+                const oldAgent = document.getElementById(`rectangle${i}`);
+                const newAgent = createAgentElement(i);
+                oldAgent.parentNode.replaceChild(newAgent, oldAgent);
+            }
+            updateAgentColors();
+        });
+
+        // Add this after your existing script declarations
+        const personalities = {
+            witty: "You are witty and sarcastic, often making clever observations with a hint of playful mockery.",
+            formal: "You are extremely formal and professional, speaking like a distinguished academic or diplomat.",
+            casual: "You are super casual and laid-back, using informal language and speaking like a close friend.",
+            poetic: "You are poetic and romantic, often speaking in metaphors and flowery language.",
+            nerdy: "You are a tech enthusiast who loves making references to science, gaming, and pop culture.",
+            philosophical: "You are deeply philosophical, always trying to explore the deeper meaning of conversations.",
+            dramatic: "You are theatrical and dramatic, treating every interaction like it's a scene from a play.",
+            optimistic: "You are extremely positive and encouraging, always finding the bright side of things.",
+            mysterious: "You are enigmatic and mysterious, speaking in riddles and cryptic statements.",
+            rebellious: "You are a nonconformist who questions everything and challenges conventional wisdom."
+        };
+
+        // Add this function to get a random personality
+        function getRandomPersonality() {
+            const keys = Object.keys(personalities);
+            return keys[Math.floor(Math.random() * keys.length)];
+        }
+    </script>
+</body>
+
+</html>
