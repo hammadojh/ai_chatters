@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import Anthropic from '@anthropic-ai/sdk';
+import { Readable } from 'stream';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -46,6 +47,13 @@ const personalities = {
     optimistic: "You are extremely positive and encouraging, always finding the bright side of things.",
     mysterious: "You are enigmatic and mysterious, speaking in riddles and cryptic statements.",
     rebellious: "You are a nonconformist who questions everything and challenges conventional wisdom."
+};
+
+// Add this after your other initializations
+const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+let agentVoices = {
+    1: 'nova',    // Default voice for first agent
+    2: 'fable'    // Default voice for second agent
 };
 
 // Create the server
@@ -121,6 +129,41 @@ const server = http.createServer(async (req, res) => {
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
+        });
+    } else if (req.method === 'POST' && req.url === '/speak') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', async () => {
+            const { text, agentId } = JSON.parse(body);
+            try {
+                // Use the agent's assigned voice, or fallback to 'alloy'
+                const voice = agentVoices[agentId] || 'alloy';
+                
+                const mp3Response = await openai.audio.speech.create({
+                    model: "tts-1",
+                    voice: voice,
+                    input: text,
+                });
+
+                // Get the audio data as a buffer
+                const audioBuffer = Buffer.from(await mp3Response.arrayBuffer());
+
+                // Set headers for audio streaming
+                res.writeHead(200, {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Length': audioBuffer.length
+                });
+
+                // Create a readable stream from the buffer and pipe it to response
+                const stream = Readable.from(audioBuffer);
+                stream.pipe(res);
+            } catch (error) {
+                console.error('TTS error:', error);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Text-to-speech failed' }));
+            }
         });
     } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });

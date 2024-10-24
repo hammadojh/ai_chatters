@@ -147,6 +147,16 @@
         #chatInput{
             z-index: 25;
         }
+
+        .voice-active {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { background-color: rgb(239, 68, 68); }
+            50% { background-color: rgb(185, 28, 28); }
+            100% { background-color: rgb(239, 68, 68); }
+        }
     </style>
 </head>
 
@@ -221,6 +231,8 @@
         let agentCount = 2;
         let userMessageQueue = [];
         let isChatting = false;
+        let voiceEnabled = {};
+        let isPlaying = false;
 
         // Function to get grayscale color based on agent number
         function getGrayScale(agentNumber, totalAgents) {
@@ -269,7 +281,48 @@
             }
         });
 
+        // Update the speakText function to track audio state
+        async function speakText(text, agentId) {
+            try {
+                const audioResponse = await fetch('/speak', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        text,
+                        agentId
+                    })
+                });
+
+                if (audioResponse.ok) {
+                    isPlaying = true;
+                    const audioBlob = await audioResponse.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    
+                    // Wait for audio to complete
+                    await new Promise((resolve) => {
+                        audio.onended = () => {
+                            isPlaying = false;
+                            resolve();
+                        };
+                        audio.play();
+                    });
+                }
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                isPlaying = false;
+            }
+        }
+
+        // Update the initiateChat function to wait for audio
         async function initiateChat(message, isUserMessage = false) {
+            // Wait if audio is playing
+            while (isPlaying) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
             isChatting = true;
             const currentAgent = (turn % agentCount) + 1;
             const messagesContainer = document.getElementById(`messages${currentAgent}`);
@@ -307,42 +360,73 @@
                 const decoder = new TextDecoder('utf-8');
                 let done = false;
                 let text = '';
-                let buffer = '';
+                let wordBuffer = '';
 
+                // First, accumulate and display all text
                 while (!done) {
                     const { value, done: streamDone } = await reader.read();
                     done = streamDone;
                     const chunk = decoder.decode(value, { stream: true });
                     
+                    // Check if the first chunk contains Arabic to set initial direction
+                    if (text.length === 0 && containsArabic(chunk)) {
+                        newMessage.style.direction = 'rtl';
+                        newMessage.style.textAlign = 'right';
+                    }
+                    
                     // Process the chunk character by character
                     for (const char of chunk) {
-                        buffer += char;
-                        const charSpan = document.createElement('span');
-                        charSpan.className = 'character';
-                        charSpan.textContent = char === ' ' ? '\u00A0' : char; // Use non-breaking space for spaces
-                        newMessage.appendChild(charSpan);
+                        wordBuffer += char;
                         
-                        // Slow down the streaming
-                        await new Promise(resolve => setTimeout(resolve, 25)); // Increased delay
+                        // When we hit a space or punctuation, display the word
+                        if (char === ' ' || char === '.' || char === '!' || char === '?' || char === ',' || char === '؟' || char === '،') {
+                            if (wordBuffer.trim()) {
+                                const wordSpan = document.createElement('span');
+                                wordSpan.className = 'character';
+                                wordSpan.textContent = wordBuffer + "\u00A0";
+                                
+                                // Set RTL for Arabic words
+                                if (containsArabic(wordBuffer)) {
+                                    wordSpan.style.direction = 'rtl';
+                                }
+                                
+                                newMessage.appendChild(wordSpan);
+                                await new Promise(resolve => setTimeout(resolve, voiceEnabled[currentAgent] ? 10 : 100));
+                            }
+                            wordBuffer = '';
+                        }
                     }
                     text += chunk;
                 }
 
                 // Handle any remaining text in the buffer
-                if (buffer) { // Remove trim() to keep spaces
+                if (wordBuffer.trim()) {
                     const wordSpan = document.createElement('span');
                     wordSpan.className = 'character';
-                    wordSpan.textContent = buffer.replace(/ /g, '\u00A0'); // Replace spaces with non-breaking spaces
+                    wordSpan.textContent = wordBuffer.trim();
+                    if (containsArabic(wordBuffer)) {
+                        wordSpan.style.direction = 'rtl';
+                    }
                     newMessage.appendChild(wordSpan);
                 }
 
+                // After text is complete, speak if voice is enabled
+                if (voiceEnabled[currentAgent]) {
+                    await speakText(text.trim(), currentAgent);
+                }
+
                 // Store the complete text
-                newMessage.innerHTML = text // Use innerHTML and replace spaces with non-breaking spaces
+                newMessage.textContent = text;
 
                 turn++;
 
-                // Continue the conversation
-                setTimeout(() => {
+                // Continue the conversation only after all audio is complete
+                setTimeout(async () => {
+                    // Wait for any ongoing audio to complete
+                    while (isPlaying) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
                     if (userMessageQueue.length > 0) {
                         const userMessage = userMessageQueue.shift();
                         initiateChat(userMessage, true);
@@ -375,6 +459,9 @@
                     <button class="personality-button bg-yellow-500 text-white px-2 py-1 rounded text-sm">
                         ${getRandomPersonality()}
                     </button>
+                    <button class="voice-button bg-red-500 text-white px-2 py-1 rounded text-sm">
+                        Voice
+                    </button>
                 </div>
                 <div class="context-input hidden absolute top-12 left-2 right-2 z-10">
                     <textarea 
@@ -401,6 +488,7 @@
             const saveContextButton = agentDiv.querySelector('.save-context');
             const textarea = agentDiv.querySelector('textarea');
             const modelButton = agentDiv.querySelector('.model-button');
+            const voiceButton = agentDiv.querySelector('.voice-button');
 
             // Add model toggle functionality
             modelButton.addEventListener('click', async () => {
@@ -501,6 +589,12 @@
                 }
             });
 
+            voiceButton.addEventListener('click', () => {
+                const agentId = parseInt(agentDiv.id.replace('rectangle', ''));
+                voiceEnabled[agentId] = !voiceEnabled[agentId];
+                voiceButton.classList.toggle('voice-active', voiceEnabled[agentId]);
+            });
+
             return agentDiv;
         }
 
@@ -536,6 +630,12 @@
         function getRandomPersonality() {
             const keys = Object.keys(personalities);
             return keys[Math.floor(Math.random() * keys.length)];
+        }
+
+        // Add this helper function to detect Arabic text
+        function containsArabic(text) {
+            const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+            return arabicPattern.test(text);
         }
     </script>
 </body>
