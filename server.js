@@ -75,8 +75,7 @@ const server = http.createServer(async (req, res) => {
             body += chunk.toString();
         });
         req.on('end', async () => {
-            const { message, turn, agentCount } = JSON.parse(body);
-            const agentId = (turn % agentCount) + 1; // Determine agent ID based on turn
+            const { message, agentId, agentCount } = JSON.parse(body);
             if (!conversationHistory[agentId]) {
                 conversationHistory[agentId] = [];
             }
@@ -172,7 +171,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 // Function to stream response from OpenAI API
-async function streamOpenAIResponse(message, agentId, agentCount, res) {
+async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfResponse = false) {
     // Add the new message to the conversation history of the current agent only
     if (!conversationHistory[agentId]) {
         conversationHistory[agentId] = [];
@@ -189,11 +188,15 @@ async function streamOpenAIResponse(message, agentId, agentCount, res) {
     const personalityContext = agentPersonalities[agentId] ? 
         personalities[agentPersonalities[agentId]] : '';
     
+    // Update the systemMessage in the streamOpenAIResponse function
     const systemMessage = `Agent ${agentId}, you are part of a group chat with ${agentCount} agents. 
-                         You are responding to Agent ${agentId === 1 ? agentCount : agentId - 1}'s message.
+                         ${isSelfResponse ? 
+                           'You are elaborating on your previous statement.' : 
+                           `You are responding to Agent ${agentId === 1 ? agentCount : agentId - 1}'s message.`}
                          ${personalityContext ? personalityContext : ''}
                          ${agentContext ? `Your context is: ${agentContext}` : ''}
-                         Respond concisely and naturally as a human. Do not exceed 100 characters.`;
+                         Respond concisely and naturally as a human. Your response must not exceed 64 characters.
+                         If you exceed this limit, your message will be cut off.`;
 
     try {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -201,27 +204,39 @@ async function streamOpenAIResponse(message, agentId, agentCount, res) {
         if (agentModels[agentId] === 'claude') {
             const stream = await anthropic.messages.create({
                 model: 'claude-3-sonnet-20240229',
-                max_tokens: 100,
+                max_tokens: 30, // Reduced to approximate 64 characters
                 messages: [{ role: 'user', content: message }],
                 system: systemMessage,
                 stream: true,
             });
 
+            let charCount = 0;
             for await (const chunk of stream) {
-                if (chunk.type === 'content_block_delta') {
-                    res.write(chunk.delta.text);
+                if (chunk.type === 'content_block_delta' && charCount < 64) {
+                    const text = chunk.delta.text;
+                    const remainingChars = 64 - charCount;
+                    const truncatedText = text.slice(0, remainingChars);
+                    res.write(truncatedText);
+                    charCount += truncatedText.length;
                 }
             }
         } else {
             const stream = await openai.chat.completions.create({
                 model: "gpt-3.5-turbo",
                 messages: [...messages, { role: "system", content: systemMessage }],
+                max_tokens: 30, // Reduced to approximate 64 characters
                 stream: true,
             });
 
+            let charCount = 0;
             for await (const chunk of stream) {
                 const text = chunk.choices[0]?.delta?.content || '';
-                res.write(text);
+                if (charCount < 64) {
+                    const remainingChars = 64 - charCount;
+                    const truncatedText = text.slice(0, remainingChars);
+                    res.write(truncatedText);
+                    charCount += truncatedText.length;
+                }
             }
         }
 
