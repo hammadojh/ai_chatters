@@ -17,6 +17,7 @@
             #agentsContainer {
                 flex-direction: column;
             }
+
             .agent {
                 display: flex;
                 align-items: center;
@@ -31,7 +32,8 @@
             padding: 20px;
             overflow-y: auto;
             height: 100%;
-            justify-content: flex-end; /* Keep current message at the bottom */
+            justify-content: flex-end;
+            /* Keep current message at the bottom */
         }
 
         .message {
@@ -65,12 +67,13 @@
         }
 
         .agent {
-            height: 400px;
+            height: 100vh;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: visible; /* Allow context menu to be visible outside */
+            overflow: visible;
+            /* Allow context menu to be visible outside */
         }
 
         .message-container {
@@ -81,10 +84,12 @@
             bottom: 0;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Center the message vertically */
+            justify-content: center;
+            /* Center the message vertically */
             align-items: center;
             padding: 20px;
-            overflow: hidden; /* Hide overflow content */
+            overflow: hidden;
+            /* Hide overflow content */
         }
 
         .message {
@@ -100,19 +105,28 @@
 
         .context-input {
             position: absolute;
-            top: 64px;  /* Increased from 12px to move it below the buttons */
+            top: 64px;
+            /* Increased from 12px to move it below the buttons */
             left: 2px;
             right: 2px;
             z-index: 15;
-            background-color: rgba(0, 0, 0, 0.8);  /* Add semi-transparent background */
-            padding: 24px;  /* Add some padding */
-            border-radius: 8px;  /* Round the corners */
+            background-color: rgba(0, 0, 0, 0.8);
+            /* Add semi-transparent background */
+            padding: 24px;
+            /* Add some padding */
+            border-radius: 8px;
+            /* Round the corners */
         }
 
         /* Smooth text appearance */
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .character {
@@ -122,7 +136,8 @@
 
         /* Add these new styles */
         .agent .flex.gap-1 {
-            z-index: 20; /* Make buttons clickable */
+            z-index: 20;
+            /* Make buttons clickable */
         }
 
         .context-input {
@@ -130,7 +145,8 @@
             top: 12px;
             left: 2px;
             right: 2px;
-            z-index: 15; /* Lower than buttons but higher than messages */
+            z-index: 15;
+            /* Lower than buttons but higher than messages */
         }
 
         .message-container {
@@ -145,9 +161,11 @@
             align-items: center;
             padding: 20px;
             overflow: hidden;
-            z-index: 10; /* Lower than both buttons and context input */
+            z-index: 10;
+            /* Lower than both buttons and context input */
         }
-        #chatInput{
+
+        #chatInput {
             z-index: 25;
         }
 
@@ -157,7 +175,8 @@
         }
 
         .voice-button.enabled {
-            background-color: rgb(185, 28, 28); /* Dark red for enabled state */
+            background-color: rgb(185, 28, 28);
+            /* Dark red for enabled state */
         }
 
         /* Remove the old pulse animation styles */
@@ -168,20 +187,25 @@
         /* Add adaptive text color based on background */
         .agent.bg-gray-300 .message,
         .agent.bg-gray-400 .message {
-            color: #1a202c; /* Dark text for light backgrounds */
+            color: #1a202c;
+            /* Dark text for light backgrounds */
         }
 
         /* Style for circular buttons */
-        #addAgent, #removeAgent {
+        #addAgent,
+        #removeAgent {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
-            z-index: 30; /* Higher than chatInput's z-index of 25 */
-            position: relative; /* Ensure z-index works */
+            z-index: 30;
+            /* Higher than chatInput's z-index of 25 */
+            position: relative;
+            /* Ensure z-index works */
         }
 
-        #addAgent:hover, #removeAgent:hover {
+        #addAgent:hover,
+        #removeAgent:hover {
             transform: scale(1.1);
         }
 
@@ -192,7 +216,8 @@
             left: 300px;
             right: 300px;
             text-align: center;
-            z-index: 30; /* Match the buttons */
+            z-index: 30;
+            /* Match the buttons */
         }
 
         /* ... existing styles ... */
@@ -223,12 +248,26 @@
             animation: pulse 1s infinite;
         }
 
-        .dot:nth-child(2) { animation-delay: 0.2s; }
-        .dot:nth-child(3) { animation-delay: 0.4s; }
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(0.8); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; }
+
+            0%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -245,11 +284,8 @@
                 </button>
             </div>
             <div class="context-input hidden absolute top-45 left-2 right-2 z-10">
-                <textarea 
-                    class="w-full p-2 text-black rounded"
-                    placeholder="Enter agent context..."
-                    rows="3"
-                ></textarea>
+                <textarea class="w-full p-2 text-black rounded" placeholder="Enter agent context..."
+                    rows="3"></textarea>
                 <button class="save-context bg-green-500 text-white px-2 py-1 rounded text-sm mt-1">
                     Save Context
                 </button>
@@ -279,11 +315,8 @@
                     </button>
                 </div>
                 <div class="context-input hidden absolute top-64 right-2 left-2 z-10">
-                    <textarea 
-                        class="w-full p-2 text-black rounded"
-                        placeholder="Enter agent context..."
-                        rows="3"
-                    ></textarea>
+                    <textarea class="w-full p-2 text-black rounded" placeholder="Enter agent context..."
+                        rows="3"></textarea>
                     <button class="save-context bg-green-500 text-white px-2 py-1 rounded text-sm mt-1">
                         Save Context
                     </button>
@@ -302,13 +335,15 @@
             </div>
         </div>
     </div>
-    <input id="chatInput" type="text" class="p-2.5 text-center text-lg rounded-xl shadow-lg" placeholder="Type your message..."
-        style="position: fixed; bottom: 150px; left: 300px; right: 300px;">
+    <input id="chatInput" type="text" class="p-2.5 text-center text-lg rounded-xl shadow-lg"
+        placeholder="Type your message..." style="position: fixed; bottom: 150px; left: 300px; right: 300px;">
     <div class="agent-controls">
-        <button id="addAgent" class="rounded-full bg-black text-white w-10 h-10 flex items-center justify-center text-2xl hover:bg-gray-800">
+        <button id="addAgent"
+            class="rounded-full bg-black text-white w-10 h-10 flex items-center justify-center text-2xl hover:bg-gray-800">
             +
         </button>
-        <button id="removeAgent" class="rounded-full bg-black text-white w-10 h-10 flex items-center justify-center text-2xl ml-2 hover:bg-gray-800">
+        <button id="removeAgent"
+            class="rounded-full bg-black text-white w-10 h-10 flex items-center justify-center text-2xl ml-2 hover:bg-gray-800">
             −
         </button>
     </div>
@@ -339,7 +374,7 @@
 
             let lastSpeaker = null;
             const lastMessage = document.getElementById(`response${availableAgents[0]}`)?.textContent;
-            
+
             // If this is a self-response (same agent speaking twice)
             if (availableAgents.length === 1) {
                 const agent = availableAgents[0];
@@ -353,7 +388,7 @@
             // Get random index and remove that agent from available list
             const randomIndex = Math.floor(Math.random() * availableAgents.length);
             const selectedAgent = availableAgents.splice(randomIndex, 1)[0];
-            
+
             return {
                 agentId: selectedAgent,
                 isSelfResponse: false
@@ -364,14 +399,14 @@
         function getGrayScale(agentNumber, totalAgents) {
             const grayLevel = Math.max(300, 900 - ((agentNumber - 1) * (600 / (totalAgents - 1))));
             const level = Math.floor(grayLevel / 100) * 100;
-            
+
             // Update both message and loading indicator color based on background brightness
             const agentDiv = document.querySelector(`#rectangle${agentNumber}`);
             if (agentDiv) {
                 const messageElement = agentDiv.querySelector('.message');
                 const loadingIndicator = agentDiv.querySelector('.loading-indicator');
                 const textColor = level <= 400 ? '#1a202c' : '#ffffff';
-                
+
                 if (messageElement) {
                     messageElement.style.color = textColor;
                 }
@@ -379,7 +414,7 @@
                     loadingIndicator.style.color = textColor;
                 }
             }
-            
+
             return `bg-gray-${level}`;
         }
 
@@ -437,7 +472,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         text,
                         agentId
                     })
@@ -448,14 +483,14 @@
                     const audioBlob = await audioResponse.blob();
                     const audioUrl = URL.createObjectURL(audioBlob);
                     const audio = new Audio(audioUrl);
-                    
+
                     // Signal when audio starts playing
                     audio.onplay = () => {
                         const agentDiv = document.getElementById(`rectangle${agentId}`);
                         const loadingIndicator = agentDiv.querySelector('.loading-indicator');
                         loadingIndicator.classList.remove('visible');
                     };
-                    
+
                     // Wait for audio to complete
                     await new Promise((resolve) => {
                         audio.onended = () => {
@@ -480,10 +515,10 @@
 
             isChatting = true;
             // Replace turn-based selection with random selection
-            const { agentId: currentAgent, isSelfResponse } = isUserMessage ? 
+            const { agentId: currentAgent, isSelfResponse } = isUserMessage ?
                 getNextAgent() : getNextAgent();
             const messagesContainer = document.getElementById(`messages${currentAgent}`);
-            
+
             // Fade out existing message if it exists
             const existingMessage = messagesContainer.querySelector('.message');
             if (existingMessage) {
@@ -505,8 +540,8 @@
             newMessage.classList.add('visible');
 
             // Add self-response context to the message if needed
-            const contextualizedMessage = isSelfResponse ? 
-                `Elaborate on what you just said: ${message}` : 
+            const contextualizedMessage = isSelfResponse ?
+                `Elaborate on what you just said: ${message}` :
                 message;
 
             try {
@@ -515,8 +550,8 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        message: contextualizedMessage, 
+                    body: JSON.stringify({
+                        message: contextualizedMessage,
                         agentId: currentAgent,
                         agentCount,
                         isSelfResponse
@@ -534,29 +569,29 @@
                     const { value, done: streamDone } = await reader.read();
                     done = streamDone;
                     const chunk = decoder.decode(value, { stream: true });
-                    
+
                     // Check if the first chunk contains Arabic to set initial direction
                     if (text.length === 0 && containsArabic(chunk)) {
                         newMessage.style.direction = 'rtl';
                         newMessage.style.textAlign = 'right';
                     }
-                    
+
                     // Process the chunk character by character
                     for (const char of chunk) {
                         wordBuffer += char;
-                        
+
                         // When we hit a space or punctuation, display the word
                         if (char === ' ' || char === '.' || char === '!' || char === '?' || char === ',' || char === '؟' || char === '،') {
                             if (wordBuffer.trim()) {
                                 const wordSpan = document.createElement('span');
                                 wordSpan.className = 'character';
                                 wordSpan.textContent = wordBuffer + "\u00A0";
-                                
+
                                 // Set RTL for Arabic words
                                 if (containsArabic(wordBuffer)) {
                                     wordSpan.style.direction = 'rtl';
                                 }
-                                
+
                                 newMessage.appendChild(wordSpan);
                                 await new Promise(resolve => setTimeout(resolve, voiceEnabled[currentAgent] ? 10 : 100));
                             }
@@ -581,9 +616,9 @@
                 if (voiceEnabled[currentAgent]) {
                     const loadingIndicator = messagesContainer.querySelector('.loading-indicator');
                     loadingIndicator.classList.add('visible');
-                    
+
                     await speakText(text.trim(), currentAgent);
-                    
+
                     // Hide loading indicator after voice completes
                     loadingIndicator.classList.remove('visible');
                 }
@@ -596,7 +631,7 @@
                     while (isPlaying) {
                         await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                    
+
                     if (userMessageQueue.length > 0) {
                         const userMessage = userMessageQueue.shift();
                         initiateChat(userMessage, true);
@@ -660,7 +695,7 @@
                     </div>
                 </div>
             `;
-            
+
             // Add existing event listeners
             const trainButton = agentDiv.querySelector('.train-button');
             const contextInput = agentDiv.querySelector('.context-input');
@@ -681,7 +716,7 @@
                             agentId: agentNumber
                         })
                     });
-                    
+
                     if (response.ok) {
                         const { model } = await response.json();
                         modelButton.textContent = model === 'gpt' ? 'GPT' : 'Claude';
@@ -711,7 +746,7 @@
                             context: context
                         })
                     });
-                    
+
                     if (response.ok) {
                         contextInput.classList.add('hidden');
                         trainButton.classList.add('bg-green-500');
@@ -741,7 +776,7 @@
                     const currentIndex = personalityKeys.indexOf(currentPersonality);
                     const nextIndex = (currentIndex + 1) % personalityKeys.length;
                     const newPersonality = personalityKeys[nextIndex];
-                    
+
                     const response = await fetch('/set-personality', {
                         method: 'POST',
                         headers: {
@@ -752,10 +787,10 @@
                             personality: newPersonality
                         })
                     });
-                    
+
                     if (response.ok) {
-                        personalityButton.textContent = newPersonality.charAt(0).toUpperCase() + 
-                                             newPersonality.slice(1);
+                        personalityButton.textContent = newPersonality.charAt(0).toUpperCase() +
+                            newPersonality.slice(1);
                         // Visual feedback
                         personalityButton.classList.add('bg-green-500');
                         setTimeout(() => {

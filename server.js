@@ -97,10 +97,10 @@ const server = http.createServer(async (req, res) => {
         req.on('end', async () => {
             const { agentId, context } = JSON.parse(body);
             agentContexts[agentId] = context;
-            
+
             // Clear previous conversation history for this agent
             conversationHistory[agentId] = [];
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         });
@@ -113,7 +113,7 @@ const server = http.createServer(async (req, res) => {
             const { agentId } = JSON.parse(body);
             // Toggle between 'gpt' and 'claude'
             agentModels[agentId] = agentModels[agentId] === 'gpt' ? 'claude' : 'gpt';
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ model: agentModels[agentId] }));
         });
@@ -125,7 +125,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', async () => {
             const { agentId, personality } = JSON.parse(body);
             agentPersonalities[agentId] = personality;
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         });
@@ -139,7 +139,7 @@ const server = http.createServer(async (req, res) => {
             try {
                 // Use the agent's assigned voice, or fallback to 'alloy'
                 const voice = agentVoices[agentId] || 'alloy';
-                
+
                 const mp3Response = await openai.audio.speech.create({
                     model: "tts-1",
                     voice: voice,
@@ -185,26 +185,26 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
     }));
 
     const agentContext = agentContexts[agentId] || '';
-    const personalityContext = agentPersonalities[agentId] ? 
+    const personalityContext = agentPersonalities[agentId] ?
         personalities[agentPersonalities[agentId]] : '';
-    
+
     // Update the systemMessage in the streamOpenAIResponse function
     const systemMessage = `Agent ${agentId}, you are part of a group chat with ${agentCount} agents. 
-                         ${isSelfResponse ? 
-                           'You are elaborating on your previous statement.' : 
-                           `You are responding to Agent ${agentId === 1 ? agentCount : agentId - 1}'s message.`}
+                         ${isSelfResponse ?
+            'You are elaborating on your previous statement.' :
+            `You are responding to Agent ${agentId === 1 ? agentCount : agentId - 1}'s message.`}
                          ${personalityContext ? personalityContext : ''}
                          ${agentContext ? `Your context is: ${agentContext}` : ''}
-                         Respond concisely and naturally as a human. Your response must not exceed 64 characters.
+                         Respond concisely and naturally as a human. Your response must not exceed 240 characters.
                          If you exceed this limit, your message will be cut off.`;
 
     try {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        
+
         if (agentModels[agentId] === 'claude') {
             const stream = await anthropic.messages.create({
                 model: 'claude-3-sonnet-20240229',
-                max_tokens: 30, // Reduced to approximate 64 characters
+                max_tokens: 240, // Reduced to approximate 100 characters
                 messages: [{ role: 'user', content: message }],
                 system: systemMessage,
                 stream: true,
@@ -212,31 +212,25 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
 
             let charCount = 0;
             for await (const chunk of stream) {
-                if (chunk.type === 'content_block_delta' && charCount < 64) {
+                if (chunk.type === 'content_block_delta') {
                     const text = chunk.delta.text;
-                    const remainingChars = 64 - charCount;
-                    const truncatedText = text.slice(0, remainingChars);
-                    res.write(truncatedText);
-                    charCount += truncatedText.length;
+                    res.write(text);
+                    charCount += text.length;
                 }
             }
         } else {
             const stream = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
+                model: "gpt-4o-mini",
                 messages: [...messages, { role: "system", content: systemMessage }],
-                max_tokens: 30, // Reduced to approximate 64 characters
+                max_tokens: 240, // Reduced to approximate 100 characters
                 stream: true,
             });
 
             let charCount = 0;
             for await (const chunk of stream) {
                 const text = chunk.choices[0]?.delta?.content || '';
-                if (charCount < 64) {
-                    const remainingChars = 64 - charCount;
-                    const truncatedText = text.slice(0, remainingChars);
-                    res.write(truncatedText);
-                    charCount += truncatedText.length;
-                }
+                res.write(text);
+                charCount += text.length;
             }
         }
 
