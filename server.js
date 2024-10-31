@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import Anthropic from '@anthropic-ai/sdk';
 import { Readable } from 'stream';
+import { logger } from './logger.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -76,12 +77,28 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             const { message, agentId, agentCount } = JSON.parse(body);
+
+            // Log the incoming chat request
+            await logger.log('chat_request', {
+                agentId,
+                agentCount,
+                message,
+                timestamp: new Date().toISOString()
+            });
+
             if (!conversationHistory[agentId]) {
                 conversationHistory[agentId] = [];
             }
             try {
                 await streamOpenAIResponse(message, agentId, agentCount, res);
             } catch (error) {
+                // Log the error
+                await logger.log('error', {
+                    type: 'chat_error',
+                    agentId,
+                    error: error.message
+                });
+
                 console.error('Error fetching response:', error.message);
                 if (!res.headersSent) {
                     res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -96,6 +113,14 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             const { agentId, context } = JSON.parse(body);
+
+            // Log training context
+            await logger.log('training', {
+                agentId,
+                context,
+                action: 'set_context'
+            });
+
             agentContexts[agentId] = context;
 
             // Clear previous conversation history for this agent
@@ -111,8 +136,16 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             const { agentId } = JSON.parse(body);
-            // Toggle between 'gpt' and 'claude'
-            agentModels[agentId] = agentModels[agentId] === 'gpt' ? 'claude' : 'gpt';
+            const newModel = agentModels[agentId] === 'gpt' ? 'claude' : 'gpt';
+
+            // Log model toggle
+            await logger.log('model_change', {
+                agentId,
+                oldModel: agentModels[agentId],
+                newModel
+            });
+
+            agentModels[agentId] = newModel;
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ model: agentModels[agentId] }));
@@ -124,6 +157,13 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             const { agentId, personality } = JSON.parse(body);
+
+            // Log personality change
+            await logger.log('personality_change', {
+                agentId,
+                personality
+            });
+
             agentPersonalities[agentId] = personality;
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -136,8 +176,18 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             const { text, agentId } = JSON.parse(body);
+
+            // Log the speech request
+            await logger.log('speech_request', {
+                agentId,
+                text,
+                voice: agentVoices[agentId] || 'alloy'
+            });
+
             try {
-                // Use the agent's assigned voice, or fallback to 'alloy'
+                // Mark this agent as having voice enabled
+                logger.setVoiceEnabled(agentId, true);
+
                 const voice = agentVoices[agentId] || 'alloy';
 
                 const mp3Response = await openai.audio.speech.create({
@@ -146,19 +196,29 @@ const server = http.createServer(async (req, res) => {
                     input: text,
                 });
 
-                // Get the audio data as a buffer
+                // Log successful speech generation
+                await logger.log('speech_success', {
+                    agentId,
+                    voice,
+                    textLength: text.length
+                });
+
                 const audioBuffer = Buffer.from(await mp3Response.arrayBuffer());
 
-                // Set headers for audio streaming
                 res.writeHead(200, {
                     'Content-Type': 'audio/mpeg',
                     'Content-Length': audioBuffer.length
                 });
 
-                // Create a readable stream from the buffer and pipe it to response
                 const stream = Readable.from(audioBuffer);
                 stream.pipe(res);
             } catch (error) {
+                // Log speech error
+                await logger.log('speech_error', {
+                    agentId,
+                    error: error.message
+                });
+
                 console.error('TTS error:', error);
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Text-to-speech failed' }));
@@ -188,7 +248,7 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
     const personalityContext = agentPersonalities[agentId] ?
         personalities[agentPersonalities[agentId]] : '';
 
-    // Update the systemMessage in the streamOpenAIResponse function
+    // Construct the system message
     const systemMessage = `Agent ${agentId}, you are part of a group chat with ${agentCount} agents. 
                          ${isSelfResponse ?
             'You are elaborating on your previous statement.' :
@@ -198,10 +258,27 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
                          Respond concisely and naturally as a human. Your response must not exceed 240 characters.
                          If you exceed this limit, your message will be cut off.`;
 
+    // Log the system message and context
+    await logger.log('prompt', {
+        agentId,
+        systemMessage,
+        context: agentContexts[agentId],
+        personality: agentPersonalities[agentId],
+        model: agentModels[agentId]
+    });
+
     try {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
+        let fullResponse = '';
 
         if (agentModels[agentId] === 'claude') {
+            // Log Claude API call
+            await logger.log('api_request', {
+                agentId,
+                model: 'claude-3-sonnet-20240229',
+                provider: 'anthropic'
+            });
+
             const stream = await anthropic.messages.create({
                 model: 'claude-3-sonnet-20240229',
                 max_tokens: 240, // Reduced to approximate 100 characters
@@ -210,15 +287,21 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
                 stream: true,
             });
 
-            let charCount = 0;
             for await (const chunk of stream) {
                 if (chunk.type === 'content_block_delta') {
                     const text = chunk.delta.text;
                     res.write(text);
-                    charCount += text.length;
+                    fullResponse += text;
                 }
             }
         } else {
+            // Log OpenAI API call
+            await logger.log('api_request', {
+                agentId,
+                model: 'gpt-4-mini',
+                provider: 'openai'
+            });
+
             const stream = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [...messages, { role: "system", content: systemMessage }],
@@ -226,13 +309,19 @@ async function streamOpenAIResponse(message, agentId, agentCount, res, isSelfRes
                 stream: true,
             });
 
-            let charCount = 0;
             for await (const chunk of stream) {
                 const text = chunk.choices[0]?.delta?.content || '';
                 res.write(text);
-                charCount += text.length;
+                fullResponse += text;
             }
         }
+
+        // Log the complete response
+        await logger.log('api_response', {
+            agentId,
+            response: fullResponse,
+            model: agentModels[agentId]
+        });
 
         res.end();
     } catch (error) {
