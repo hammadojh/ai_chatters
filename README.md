@@ -26,8 +26,7 @@ cd <project-directory>
 bash
 npm install
 3. Create a `.env` file in the root directory with the following variables:
-env
-OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_KEY=your_openai_api_key  
 ANTHROPIC_API_KEY=your_anthropic_api_key
 
 ## Usage
@@ -52,23 +51,6 @@ The application comes with several pre-defined personality types for agents:
 - Mysterious
 - Rebellious
 
-## Voice Options
-
-Available voices for text-to-speech:
-- Alloy
-- Echo
-- Fable
-- Onyx
-- Nova
-- Shimmer
-
-## API Endpoints
-
-- `POST /chat` - Send a message to an agent
-- `POST /train` - Set context for an agent
-- `POST /toggle-model` - Switch between GPT and Claude models
-- `POST /set-personality` - Set an agent's personality
-- `POST /speak` - Convert text to speech
 
 ## Technical Details
 
@@ -93,11 +75,3 @@ Logs are stored in the `logs` directory with daily rotation.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-[Add your license here]
-
-## Support
-
-[Add support information here]
